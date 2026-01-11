@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: server
-          image: region-docker.pkg.dev/project/repo/petpulse-server:latest # Replace in CD
+          image: us-east1-docker.pkg.dev/clestiq-petpulse/petpulse-server/petpulse-server:preview-latest
           ports:
             - containerPort: 3000
           envFrom:

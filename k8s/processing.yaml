@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: petpulse-worker
+  name: petpulse-processing
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
-      app: petpulse-worker
+      app: petpulse-processing
   template:
     metadata:
       labels:
-        app: petpulse-worker
+        app: petpulse-processing
     spec:
       containers:
         - name: worker
-          image: region-docker.pkg.dev/project/repo/petpulse-worker:latest # Replace in CD
+          image: us-east1-docker.pkg.dev/clestiq-petpulse/petpulse-server/petpulse-worker:preview-latest
           envFrom:
             - configMapRef:
                 name: petpulse-config

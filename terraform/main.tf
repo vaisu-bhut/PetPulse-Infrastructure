@@ -97,6 +97,11 @@ resource "google_sql_user" "users" {
   password = random_password.db_password.result
 }
 
+resource "google_sql_database" "database" {
+  name     = "petpulse"
+  instance = google_sql_database_instance.instance.name
+}
+
 # GKE Cluster
 resource "google_container_cluster" "primary" {
   name     = "${var.environment}-gke-cluster"

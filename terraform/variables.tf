@@ -47,3 +47,9 @@ variable "db_tier" {
   description = "Machine type for Cloud SQL instance"
   type        = string
 }
+
+variable "gemini_api_key" {
+  description = "API Key for Gemini Service"
+  type        = string
+  sensitive   = true
+}
