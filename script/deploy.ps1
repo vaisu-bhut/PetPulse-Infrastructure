@@ -9,7 +9,8 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Deploying to $Environment environment..."
 
-Set-Location terraform
+$TerraformDir = Join-Path $PSScriptRoot "..\terraform"
+Set-Location $TerraformDir
 
 # Format check
 Write-Host "Running terraform fmt check..."

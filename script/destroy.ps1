@@ -9,7 +9,8 @@ $ErrorActionPreference = "Stop"
 
 Write-Host "Destroying infrastructure for $Environment environment..."
 
-Set-Location terraform
+$TerraformDir = Join-Path $PSScriptRoot "..\terraform"
+Set-Location $TerraformDir
 
 # Confirmation
 $confirmation = Read-Host "WARNING: You are about to DESTROY all resources for $Environment. Type 'destroy' to confirm"

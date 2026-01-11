@@ -1,0 +1,29 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petpulse-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: petpulse-worker
+  template:
+    metadata:
+      labels:
+        app: petpulse-worker
+    spec:
+      containers:
+        - name: worker
+          image: region-docker.pkg.dev/project/repo/petpulse-worker:latest # Replace in CD
+          envFrom:
+            - configMapRef:
+                name: petpulse-config
+            - secretRef:
+                name: petpulse-secrets
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi # Workers might need more mem for processing
+            limits:
+              cpu: 500m
+              memory: 512Mi

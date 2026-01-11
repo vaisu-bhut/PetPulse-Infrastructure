@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: petpulse-redis
+spec:
+  serviceName: "petpulse-redis"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: petpulse-redis
+  template:
+    metadata:
+      labels:
+        app: petpulse-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+              name: redis
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: petpulse-redis
+spec:
+  ports:
+    - port: 6379
+      name: redis
+  clusterIP: None
+  selector:
+    app: petpulse-redis
