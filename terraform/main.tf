@@ -24,6 +24,11 @@ resource "google_project_service" "secretmanager" {
   disable_on_destroy = false
 }
 
+resource "google_project_service" "dns" {
+  service            = "dns.googleapis.com"
+  disable_on_destroy = false
+}
+
 # VPC
 resource "google_compute_network" "vpc" {
   name                    = "${var.environment}-vpc"
@@ -170,4 +175,35 @@ resource "google_secret_manager_secret" "db_password" {
 resource "google_secret_manager_secret_version" "db_password_version" {
   secret      = google_secret_manager_secret.db_password.id
   secret_data = random_password.db_password.result
+}
+
+# --- New Resources for SSL & Domains ---
+
+# DNS Managed Zone (Data Source)
+data "google_dns_managed_zone" "zone" {
+  name       = var.dns_zone_name
+  depends_on = [google_project_service.dns]
+}
+
+# Global Static IP
+resource "google_compute_global_address" "static_ip" {
+  name = "petpulse-${var.environment}-ip"
+}
+
+# DNS Record Set (A Record)
+resource "google_dns_record_set" "a_record" {
+  name         = var.domain_name
+  type         = "A"
+  ttl          = 300
+  managed_zone = data.google_dns_managed_zone.zone.name
+  rrdatas      = [google_compute_global_address.static_ip.address]
+}
+
+# Managed SSL Certificate
+resource "google_compute_managed_ssl_certificate" "default" {
+  name = "petpulse-${var.environment}-cert"
+
+  managed {
+    domains = [var.domain_name]
+  }
 }
