@@ -53,3 +53,15 @@ variable "gemini_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "domain_name" {
+  description = "The domain name for the environment (e.g., api.petpulse.clestiq.com.)"
+  type        = string
+  default     = "petpulse.clestiq.com."
+}
+
+variable "dns_zone_name" {
+  description = "The name of the Cloud DNS Managed Zone"
+  type        = string
+  default     = "clestiq-petpulse"
+}

@@ -61,9 +61,13 @@ $DbIp = $TFOutput.sql_instance_ip.value
 $DbUser = $TFOutput.db_user.value
 $DbPass = $TFOutput.db_password.value
 $GeminiKey = $TFOutput.gemini_api_key.value
+$StaticIpName = $TFOutput.static_ip_name.value
+$ManagedCertName = $TFOutput.managed_cert_name.value
+$DomainName = $TFOutput.domain_name.value
 
 Write-Host "   Cluster: $ClusterName ($Location)"
 Write-Host "   DB IP: $DbIp"
+Write-Host "   Domain: $DomainName"
 
 # 2. Convert to Connection Strings
 $DbUrl = "postgres://${DbUser}:${DbPass}@${DbIp}:5432/petpulse"
@@ -106,7 +110,16 @@ foreach ($File in $Manifests) {
     kubectl apply -f $File.FullName
 }
 
-# 6. Check Status
+# 6. Apply Ingress
+Write-Host "Applying Ingress..."
+$IngressTpl = Get-Content (Join-Path $K8sDir "ingress.yaml.tpl") -Raw
+$IngressYaml = $IngressTpl.Replace("{{STATIC_IP_NAME}}", $StaticIpName)
+$IngressYaml = $IngressYaml.Replace("{{MANAGED_CERT_NAME}}", $ManagedCertName)
+$IngressYaml = $IngressYaml.Replace("{{DOMAIN_NAME}}", $DomainName.TrimEnd('.'))
+
+$IngressYaml | kubectl apply -f -
+
+# 7. Check Status
 Write-Host "Deployment applied. Checking Rollout status..."
 kubectl rollout status deployment/petpulse-server
 kubectl rollout status deployment/petpulse-processing
