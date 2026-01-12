@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: worker
-          image: us-east1-docker.pkg.dev/clestiq-petpulse/petpulse-server/petpulse-worker:preview-latest
+          image: "{{IMAGE_REPO}}/petpulse-worker:latest"
           envFrom:
             - configMapRef:
                 name: petpulse-config

@@ -35,3 +35,7 @@ output "managed_cert_name" {
 output "domain_name" {
   value = var.domain_name
 }
+
+output "project_id" {
+  value = var.project_id
+}

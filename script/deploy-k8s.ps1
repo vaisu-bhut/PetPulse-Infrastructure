@@ -69,6 +69,18 @@ Write-Host "   Cluster: $ClusterName ($Location)"
 Write-Host "   DB IP: $DbIp"
 Write-Host "   Domain: $DomainName"
 
+# Determine Image Repository
+$ProjectID = $TFOutput.project_id.value # Assuming project_id is outputted, if not calculate or hardcode
+if (-not $ProjectID) { $ProjectID = "clestiq-petpulse" } # Fallback or ensure output exists
+$RepoName = "petpulse-${Environment}"
+$ImageRepo = "${Location}-docker.pkg.dev/${ProjectID}/${RepoName}"
+# Note: location for Artifact Registry is technically region (us-east1) not zone (us-east1-b).
+# $Location from TF might be a zone. We need region. Extract it.
+$Region = $Location -replace "-[a-z]$", ""
+$ImageRepo = "${Region}-docker.pkg.dev/${ProjectID}/${RepoName}"
+
+Write-Host "   Image Repo: $ImageRepo"
+
 # 2. Convert to Connection Strings
 $DbUrl = "postgres://${DbUser}:${DbPass}@${DbIp}:5432/petpulse"
 # Redis is internal K8s DNS
@@ -107,7 +119,14 @@ $Manifests = Get-ChildItem $K8sDir -Filter "*.yaml" | Where-Object { $_.Name -ne
 
 foreach ($File in $Manifests) {
     Write-Host "   Applying $($File.Name)..."
-    kubectl apply -f $File.FullName
+    $Content = Get-Content $File.FullName -Raw
+    # Perform replacement if placeholder exists
+    if ($Content -match "{{IMAGE_REPO}}") {
+         $Content = $Content.Replace("{{IMAGE_REPO}}", $ImageRepo)
+         $Content | kubectl apply -f -
+    } else {
+         kubectl apply -f $File.FullName
+    }
 }
 
 # 6. Apply Ingress
