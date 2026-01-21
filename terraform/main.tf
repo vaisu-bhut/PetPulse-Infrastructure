@@ -109,8 +109,8 @@ resource "google_sql_database" "database" {
 
 # GKE Cluster
 resource "google_container_cluster" "primary" {
-  name     = "${var.environment}-gke-cluster"
-  location = var.zone
+  name                = "${var.environment}-gke-cluster"
+  location            = var.zone
   deletion_protection = false
 
   # We can't create a cluster with no node pool defined, but we want to only use
