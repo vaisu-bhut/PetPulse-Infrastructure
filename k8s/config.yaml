@@ -4,3 +4,5 @@ metadata:
   name: petpulse-config
 data:
   RUST_LOG: "info"
+  GEMINI_MODEL: "gemini-3-pro-preview"
+  GCS_BUCKET_NAME: "{{GCS_BUCKET_NAME}}"
