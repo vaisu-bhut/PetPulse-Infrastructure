@@ -57,6 +57,7 @@ GEMINI_KEY=$(echo "$TF_OUTPUT_JSON" | jq -r '.gemini_api_key.value')
 STATIC_IP_NAME=$(echo "$TF_OUTPUT_JSON" | jq -r '.static_ip_name.value')
 MANAGED_CERT_NAME=$(echo "$TF_OUTPUT_JSON" | jq -r '.managed_cert_name.value')
 DOMAIN_NAME=$(echo "$TF_OUTPUT_JSON" | jq -r '.domain_name.value')
+GCS_BUCKET_NAME=$(echo "$TF_OUTPUT_JSON" | jq -r '.gcs_bucket_name.value')
 PROJECT_ID=$(echo "$TF_OUTPUT_JSON" | jq -r '.project_id.value // empty')
 
 if [ -z "$PROJECT_ID" ]; then
@@ -81,21 +82,9 @@ DB_URL="postgres://${DB_USER}:${DB_PASS}@${DB_IP}:5432/petpulse"
 REDIS_URL="redis://petpulse-redis:6379"
 
 # Determine Bucket Name
-if [ "$ENVIRONMENT" == "preview" ]; then
-    GCS_BUCKET_NAME="petpulse-videos-preview"
-    echo "   Using Preview Bucket: $GCS_BUCKET_NAME"
-else
-    # Load Env from Server .env if available for other envs
-    if [ -f "$SERVER_DIR/.env" ]; then
-        echo "Loading .env from Server..."
-        export $(grep -v '^#' "$SERVER_DIR/.env" | xargs)
-    fi
-
-    if [ -z "$GCS_BUCKET_NAME" ]; then
-        echo "Warning: GCS_BUCKET_NAME not found in .env, using default"
-        GCS_BUCKET_NAME="petpulse-videos-dev"
-    fi
-fi
+    echo "   DB IP: $DB_IP"
+    echo "   Domain: $DOMAIN_NAME"
+    echo "   Bucket: $GCS_BUCKET_NAME"
 
 
 # 3. Authenticate to GKE

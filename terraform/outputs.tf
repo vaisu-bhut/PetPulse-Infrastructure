@@ -36,6 +36,6 @@ output "domain_name" {
   value = var.domain_name
 }
 
-output "project_id" {
-  value = var.project_id
+output "gcs_bucket_name" {
+  value = google_storage_bucket.videos.name
 }

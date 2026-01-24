@@ -60,7 +60,8 @@ if [ -f "$STATE_FILE" ]; then
             kubectl delete service --all --all-namespaces --timeout=30s
             
              # 3. Delete Workloads causing DB locks
-            echo "   Deleting Deployments/Pods to free up Database..."
+            echo "   Deleting Deployments/Pods/PVCs to free up Database and Disks..."
+            kubectl delete pvc --all --all-namespaces --timeout=30s
             kubectl delete deployment,statefulset,daemonset,job --all --all-namespaces --timeout=30s
             
             # 4. Wait for GCLB
@@ -80,8 +81,26 @@ if [[ -n "$CLUSTER_NAME" && "$CLUSTER_NAME" != "null" ]]; then
      gcloud container clusters update "$CLUSTER_NAME" --no-enable-deletion-protection --location "$LOCATION" 2>/dev/null || true
 fi
 
-# 6. Destroy
+# 6. Destroy Infrastructure
 echo "Running terraform destroy..."
-terraform destroy -var-file="${ENVIRONMENT}.tfvars" -state="${ENVIRONMENT}.tfstate" -auto-approve
+if ! terraform destroy -var-file="${ENVIRONMENT}.tfvars" -state="${ENVIRONMENT}.tfstate" -auto-approve; then
+    echo "Terraform destroy failed. Checking for stuck VPC peering..."
+    
+    # Attempt to delete the stuck peering connection which often blocks VPC deletion
+    # The name is typically 'servicenetworking-googleapis-com'
+    PEERING_NAME="servicenetworking-googleapis-com"
+    NETWORK_NAME="${ENVIRONMENT}-vpc"
+    
+    echo "Attempting to force delete peering '$PEERING_NAME' from '$NETWORK_NAME'..."
+    if gcloud compute networks peerings delete "$PEERING_NAME" --network="$NETWORK_NAME" --quiet; then
+        echo "Peering deletion initiated. Waiting 10s for propagation..."
+        sleep 10
+    else
+        echo "Warning: Could not delete peering manually. It might already be gone or requires other cleanup."
+    fi
+
+    echo "Retrying terraform destroy to clean up remaining resources (VPC, etc)..."
+    terraform destroy -var-file="${ENVIRONMENT}.tfvars" -state="${ENVIRONMENT}.tfstate" -auto-approve
+fi
 
 echo "Destruction of $ENVIRONMENT complete!"

@@ -105,6 +105,7 @@ resource "google_sql_user" "users" {
 resource "google_sql_database" "database" {
   name     = "petpulse"
   instance = google_sql_database_instance.instance.name
+  depends_on = [google_sql_user.users]
 }
 
 # GKE Cluster
@@ -211,5 +212,21 @@ resource "google_compute_managed_ssl_certificate" "default" {
 
   managed {
     domains = [var.domain_name]
+  }
+}
+
+# GCS Bucket for Videos
+resource "google_storage_bucket" "videos" {
+  name          = "petpulse-videos-${var.environment}"
+  location      = "US" # Multi-region
+  force_destroy = true
+
+  uniform_bucket_level_access = true
+  
+  cors {
+    origin          = ["*"]
+    method          = ["GET", "HEAD", "PUT", "POST", "DELETE"]
+    response_header = ["*"]
+    max_age_seconds = 3600
   }
 }
