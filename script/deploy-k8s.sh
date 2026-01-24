@@ -27,6 +27,8 @@ SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
 INFRASTRUCTURE_DIR="$SCRIPT_DIR/.."
 TERRAFORM_DIR="$INFRASTRUCTURE_DIR/terraform"
 K8S_DIR="$INFRASTRUCTURE_DIR/k8s"
+SERVER_DIR="$INFRASTRUCTURE_DIR/../PetPulse-Server"
+
 
 # 1. Get Terraform Outputs
 echo "Reading Terraform outputs..."
@@ -75,7 +77,26 @@ echo "   Image Repo: $IMAGE_REPO"
 
 # 2. Convert to Connection Strings
 DB_URL="postgres://${DB_USER}:${DB_PASS}@${DB_IP}:5432/petpulse"
+DB_URL="postgres://${DB_USER}:${DB_PASS}@${DB_IP}:5432/petpulse"
 REDIS_URL="redis://petpulse-redis:6379"
+
+# Determine Bucket Name
+if [ "$ENVIRONMENT" == "preview" ]; then
+    GCS_BUCKET_NAME="petpulse-videos-preview"
+    echo "   Using Preview Bucket: $GCS_BUCKET_NAME"
+else
+    # Load Env from Server .env if available for other envs
+    if [ -f "$SERVER_DIR/.env" ]; then
+        echo "Loading .env from Server..."
+        export $(grep -v '^#' "$SERVER_DIR/.env" | xargs)
+    fi
+
+    if [ -z "$GCS_BUCKET_NAME" ]; then
+        echo "Warning: GCS_BUCKET_NAME not found in .env, using default"
+        GCS_BUCKET_NAME="petpulse-videos-dev"
+    fi
+fi
+
 
 # 3. Authenticate to GKE
 echo "Authenticating to GKE..."
@@ -94,6 +115,19 @@ kubectl create secret generic petpulse-secrets \
     --from-literal=GEMINI_API_KEY="$GEMINI_KEY" \
     --dry-run=client -o yaml | kubectl apply -f -
 
+# Create GCP Credentials Secret
+CREDS_FILE="clestiq-petpulse-6b40f17a955d.json"
+if [ -f "$CREDS_FILE" ]; then
+    echo "Creating GCP Credentials Secret..."
+    kubectl create secret generic petpulse-gcp-creds \
+        --from-file=credentials.json="$CREDS_FILE" \
+        --dry-run=client -o yaml | kubectl apply -f -
+else
+    echo "Error: Credentials file not found at $CREDS_FILE"
+    exit 1
+fi
+
+
 # 5. Apply Manifests
 echo "Applying Kubernetes Manifests..."
 # Find all yaml files in k8s dir except secret-env.yaml
@@ -101,9 +135,12 @@ find "$K8S_DIR" -name "*.yaml" -type f ! -name "secret-env.yaml" | while read -r
     echo "   Applying $(basename "$FILE")..."
     # Replace {{IMAGE_REPO}} if it exists
     if grep -q "{{IMAGE_REPO}}" "$FILE"; then
-        sed "s|{{IMAGE_REPO}}|$IMAGE_REPO|g" "$FILE" | kubectl apply -f -
+        sed -e "s|{{IMAGE_REPO}}|$IMAGE_REPO|g" \
+            -e "s|{{GCS_BUCKET_NAME}}|$GCS_BUCKET_NAME|g" \
+            "$FILE" | kubectl apply -f -
     else
-        kubectl apply -f "$FILE"
+        sed -e "s|{{GCS_BUCKET_NAME}}|$GCS_BUCKET_NAME|g" \
+            "$FILE" | kubectl apply -f -
     fi
 done
 
@@ -120,7 +157,12 @@ if [ -f "$INGRESS_TPL" ]; then
         "$INGRESS_TPL" | kubectl apply -f -
 fi
 
-# 7. Check Status
+# 7. Restart Deployments to pick up ConfigMap Changes
+echo "Restarting Deployments..."
+kubectl rollout restart deployment/petpulse-server
+kubectl rollout restart deployment/petpulse-processing
+
+# 8. Check Status
 echo "Deployment applied. Checking Rollout status..."
 kubectl rollout status deployment/petpulse-server
 kubectl rollout status deployment/petpulse-processing
