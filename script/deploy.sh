@@ -30,6 +30,16 @@ TERRAFORM_DIR="$SCRIPT_DIR/../terraform"
 
 cd "$TERRAFORM_DIR"
 
+# Build Cloud Function zip from PetPulse-Serverless
+echo "Building email-sender function from PetPulse-Serverless..."
+SERVERLESS_DIR="$SCRIPT_DIR/../../PetPulse-Serverless"
+if [ ! -d "$SERVERLESS_DIR" ]; then
+    echo "Error: PetPulse-Serverless directory not found at $SERVERLESS_DIR"
+    exit 1
+fi
+(cd "$SERVERLESS_DIR" && zip -q -r "$TERRAFORM_DIR/email-sender.zip" index.js package.json)
+echo "✅ email-sender.zip created"
+
 # Format check
 echo "Running terraform fmt check..."
 terraform fmt -check

@@ -54,11 +54,13 @@ DB_IP=$(echo "$TF_OUTPUT_JSON" | jq -r '.sql_instance_ip.value')
 DB_USER=$(echo "$TF_OUTPUT_JSON" | jq -r '.db_user.value')
 DB_PASS=$(echo "$TF_OUTPUT_JSON" | jq -r '.db_password.value')
 GEMINI_KEY=$(echo "$TF_OUTPUT_JSON" | jq -r '.gemini_api_key.value')
+
 STATIC_IP_NAME=$(echo "$TF_OUTPUT_JSON" | jq -r '.static_ip_name.value')
 MANAGED_CERT_NAME=$(echo "$TF_OUTPUT_JSON" | jq -r '.managed_cert_name.value')
 DOMAIN_NAME=$(echo "$TF_OUTPUT_JSON" | jq -r '.domain_name.value')
 GCS_BUCKET_NAME=$(echo "$TF_OUTPUT_JSON" | jq -r '.gcs_bucket_name.value')
 PROJECT_ID=$(echo "$TF_OUTPUT_JSON" | jq -r '.project_id.value // empty')
+SENDGRID_API_KEY=$(echo "$TF_OUTPUT_JSON" | jq -r '.sendgrid_api_key.value // empty')
 
 if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID="petpulse-485420"
@@ -77,8 +79,9 @@ IMAGE_REPO="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO_NAME}"
 echo "   Image Repo: $IMAGE_REPO"
 
 # 2. Convert to Connection Strings
-DB_URL="postgres://${DB_USER}:${DB_PASS}@${DB_IP}:5432/petpulse"
-DB_URL="postgres://${DB_USER}:${DB_PASS}@${DB_IP}:5432/petpulse"
+DB_USER_ENCODED=$(printf %s "$DB_USER" | jq -sRr @uri)
+DB_PASS_ENCODED=$(printf %s "$DB_PASS" | jq -sRr @uri)
+DB_URL="postgres://${DB_USER_ENCODED}:${DB_PASS_ENCODED}@${DB_IP}:5432/petpulse"
 REDIS_URL="redis://petpulse-redis:6379"
 
 # Determine Bucket Name
@@ -96,12 +99,48 @@ fi
 
 gcloud container clusters get-credentials "$CLUSTER_NAME" --location "$LOCATION"
 
-# 4. Create/Update Secrets
+# 4. Configure IAM Permissions
+echo "Configuring IAM Permissions..."
+# Get Project Number
+PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format="value(projectNumber)")
+
+# Get Node Service Account (using the first node pool's service account)
+NODE_SA=$(gcloud container clusters describe "$CLUSTER_NAME" --location "$LOCATION" --format="value(nodeConfig.serviceAccount)")
+if [ "$NODE_SA" == "default" ]; then
+    NODE_SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
+fi
+
+echo "   Project Number: $PROJECT_NUMBER"
+echo "   Node Service Account: $NODE_SA"
+
+# A. Grant Pub/Sub Publisher to Node SA
+echo "   Granting roles/pubsub.publisher to $NODE_SA..."
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:$NODE_SA" \
+    --role="roles/pubsub.publisher" --quiet > /dev/null
+
+# B. Grant ServiceAccount Token Creator to Pub/Sub Service Agent
+echo "   Granting roles/iam.serviceAccountTokenCreator to Pub/Sub Service Agent..."
+gcloud iam service-accounts add-iam-policy-binding "$NODE_SA" \
+    --member="serviceAccount:service-${PROJECT_NUMBER}@gcp-sa-pubsub.iam.gserviceaccount.com" \
+    --role="roles/iam.serviceAccountTokenCreator" --project="$PROJECT_ID" --quiet > /dev/null
+
+# C. Grant Cloud Run Invoker to Node SA
+FUNCTION_NAME="email-sender-${ENVIRONMENT}"
+echo "   Granting roles/run.invoker for $FUNCTION_NAME to $NODE_SA..."
+gcloud run services add-iam-policy-binding "$FUNCTION_NAME" \
+    --member="serviceAccount:$NODE_SA" \
+    --role="roles/run.invoker" \
+    --project="$PROJECT_ID" \
+    --region="$REGION" --quiet > /dev/null
+
+# 5. Create/Update Secrets
 echo "Configuring Secrets..."
 kubectl create secret generic petpulse-secrets \
     --from-literal=DATABASE_URL="$DB_URL" \
     --from-literal=REDIS_URL="$REDIS_URL" \
     --from-literal=GEMINI_API_KEY="$GEMINI_KEY" \
+    --from-literal=TWILIO_SENDGRID_API_KEY="$SENDGRID_API_KEY" \
     --dry-run=client -o yaml | kubectl apply -f -
 
 # Create GCP Credentials Secret
@@ -150,10 +189,12 @@ fi
 echo "Restarting Deployments..."
 kubectl rollout restart deployment/petpulse-server
 kubectl rollout restart deployment/petpulse-processing
+kubectl rollout restart deployment/petpulse-agent
 
 # 8. Check Status
 echo "Deployment applied. Checking Rollout status..."
 kubectl rollout status deployment/petpulse-server
 kubectl rollout status deployment/petpulse-processing
+kubectl rollout status deployment/petpulse-agent
 
 echo "Deployment to K8s Complete! 🚀"

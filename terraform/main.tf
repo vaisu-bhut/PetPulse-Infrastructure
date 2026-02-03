@@ -44,6 +44,16 @@ resource "google_project_service" "cloudbuild" {
   disable_on_destroy = false
 }
 
+resource "google_project_service" "run" {
+  service            = "run.googleapis.com"
+  disable_on_destroy = false
+}
+
+resource "google_project_service" "eventarc" {
+  service            = "eventarc.googleapis.com"
+  disable_on_destroy = false
+}
+
 # VPC
 resource "google_compute_network" "vpc" {
   name                    = "${var.environment}-vpc"
