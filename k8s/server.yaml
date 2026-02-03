@@ -16,33 +16,33 @@ spec:
         - name: server
           image: "{{IMAGE_REPO}}/petpulse-server:latest"
           ports:
-            - containerPort: 3000
+            - containerPort: 8000
           envFrom:
             - configMapRef:
                 name: petpulse-config
             - secretRef:
                 name: petpulse-secrets
-          env:
-            - name: GOOGLE_APPLICATION_CREDENTIALS
-              value: /app/secrets/credentials.json
-          volumeMounts:
-            - name: gcp-creds
-              mountPath: /app/secrets
-              readOnly: true
+          # env:
+          #   - name: GOOGLE_APPLICATION_CREDENTIALS
+          #     value: /app/secrets/credentials.json
+          # volumeMounts:
+          #   - name: gcp-creds
+          #     mountPath: /app/secrets
+          #     readOnly: true
           startupProbe:
             httpGet:
               path: /health
-              port: 3000
+              port: 8000
             failureThreshold: 30
             periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /health
-              port: 3000
+              port: 8000
           livenessProbe:
             httpGet:
               path: /health
-              port: 3000
+              port: 8000
           resources:
             requests:
               cpu: 100m
@@ -50,7 +50,7 @@ spec:
             limits:
               cpu: 500m
               memory: 512Mi
-      volumes:
-        - name: gcp-creds
-          secret:
-            secretName: petpulse-gcp-creds
+      # volumes:
+      #   - name: gcp-creds
+      #     secret:
+      #       secretName: petpulse-gcp-creds

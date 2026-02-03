@@ -61,7 +61,7 @@ GCS_BUCKET_NAME=$(echo "$TF_OUTPUT_JSON" | jq -r '.gcs_bucket_name.value')
 PROJECT_ID=$(echo "$TF_OUTPUT_JSON" | jq -r '.project_id.value // empty')
 
 if [ -z "$PROJECT_ID" ]; then
-    PROJECT_ID="clestiq-petpulse"
+    PROJECT_ID="petpulse-485420"
 fi
 
 echo "   Cluster: $CLUSTER_NAME ($LOCATION)"
@@ -105,7 +105,7 @@ kubectl create secret generic petpulse-secrets \
     --dry-run=client -o yaml | kubectl apply -f -
 
 # Create GCP Credentials Secret
-CREDS_FILE="clestiq-petpulse-6b40f17a955d.json"
+CREDS_FILE="$INFRASTRUCTURE_DIR/clestiq-petpulse-6b40f17a955d.json"
 if [ -f "$CREDS_FILE" ]; then
     echo "Creating GCP Credentials Secret..."
     kubectl create secret generic petpulse-gcp-creds \

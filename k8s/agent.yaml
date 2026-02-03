@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: petpulse-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: petpulse-agent
+  template:
+    metadata:
+      labels:
+        app: petpulse-agent
+    spec:
+      containers:
+        - name: agent
+          image: "{{IMAGE_REPO}}/petpulse-agent:latest"
+          ports:
+            - containerPort: 3002
+              name: http
+          envFrom:
+            - configMapRef:
+                name: petpulse-config
+            - secretRef:
+                name: petpulse-secrets
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agent
+spec:
+  selector:
+    app: petpulse-agent
+  ports:
+    - protocol: TCP
+      port: 3002
+      targetPort: 3002
+  type: ClusterIP

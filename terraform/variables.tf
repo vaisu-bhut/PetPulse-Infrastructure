@@ -68,3 +68,9 @@ variable "gke_disk_size" {
   description = "Disk size in GB for GKE nodes"
   type        = number
 }
+
+variable "sendgrid_api_key" {
+  description = "SendGrid API Key for sending emails"
+  type        = string
+  sensitive   = true
+}

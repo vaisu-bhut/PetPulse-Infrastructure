@@ -3,6 +3,8 @@ set -e
 
 # Usage: ./deploy.sh [environment]
 ENVIRONMENT=$1
+PROJECT_ID="petpulse-485420" 
+gcloud config set project "$PROJECT_ID"
 
 if [ -z "$ENVIRONMENT" ]; then
     echo "Select environment:"
