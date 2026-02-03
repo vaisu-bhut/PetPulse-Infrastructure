@@ -39,3 +39,12 @@ output "domain_name" {
 output "gcs_bucket_name" {
   value = google_storage_bucket.videos.name
 }
+
+output "sendgrid_api_key" {
+  value     = var.sendgrid_api_key
+  sensitive = true
+}
+
+output "project_id" {
+  value = var.project_id
+}
