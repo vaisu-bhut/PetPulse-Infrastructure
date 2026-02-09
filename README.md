@@ -6,52 +6,7 @@ This repository contains the Infrastructure as Code (IaC) and deployment scripts
 
 The PetPulse platform is built on a microservices-inspired architecture running on GKE, leveraging managed GCP services for persistence, messaging, and storage.
 
-```mermaid
-graph TD
-    User([User / Client]) -->|HTTPS| LoadBalancer[Global Load Balancer]
-    LoadBalancer -->|Ingress| Ingress[GKE Ingress]
-    
-    subgraph "External APIs"
-        Gemini[Google Gemini API]
-        SendGrid[SendGrid API]
-    end
-
-    subgraph "GCP Managed Services"
-        DNS[Cloud DNS]
-        SSL[Managed SSL Cert]
-        SQL[(Cloud SQL - Postgres)]
-        GCS[Cloud Storage - Videos]
-        PubSub{Pub/Sub Topic: alert-email}
-        CF[Cloud Function: Email Sender]
-    end
-    
-    subgraph "GKE Cluster"
-        Ingress -->|Route /| Service[Service: petpulse-network]
-        Service -->|Selects| ServerPod[Pod: petpulse-server]
-        
-        ProcessingPod[Pod: petpulse-processing]
-        AgentPod[Pod: petpulse-agent]
-        Redis[(Redis Queue)]
-
-        ServerPod -->|Enqueue Job| Redis
-        Redis -->|Dequeue Job| ProcessingPod
-        
-        ServerPod -->|Read/Write| SQL
-        ProcessingPod -->|Read/Write| SQL
-        
-        ServerPod -->|Publish Events| PubSub
-        ServerPod -->|Upload Video| GCS
-        ProcessingPod -->|Download Video| GCS
-    end
-    
-    AgentPod -->|Internal API| ServerPod
-    DNS -.->|Points to| LoadBalancer
-    LoadBalancer -.->|Uses| SSL
-    
-    PubSub -->|Trigger| CF
-    CF -->|Send Email| SendGrid
-    ProcessingPod -->|AI Analysis| Gemini
-```
+![Architecture Diagram](./ArchitectureDiagram.png)
 
 ### Key Components
 
@@ -78,6 +33,12 @@ graph TD
 #### 4. Event & Serverless
 - **Pub/Sub**: Decoupled messaging system. The `server` publishes alert events.
 - **Cloud Functions (Gen 2)**: `email-sender` function triggered by Pub/Sub messages to send emails via SendGrid. This offloads email delivery from the main application flow.
+
+#### 5. Observability
+- **Prometheus**: Collects metrics from all pods (`/metrics` endpoint).
+- **Loki & Promtail**: Centralized logging system. Promtail ships container logs to Loki.
+- **Tempo**: Distributed tracing backend (receives OTLP traces).
+- **Grafana**: Visualization dashboard connecting data from Prometheus, Loki, and Tempo.
 
 ## 📂 Directory Structure
 
